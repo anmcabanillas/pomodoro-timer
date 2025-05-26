@@ -6,25 +6,13 @@
   <title>Pomodoro Widget</title>
   <style>
     :root {
-      --notion-bg: #ffffff;
-      --notion-text: #37352f;
-      --notion-border: rgba(55, 53, 47, 0.16);
-      --btn-bg: white;
-      --btn-hover: rgba(55, 53, 47, 0.08);
-      --btn-active-bg: #37352f;
-      --btn-active-text: white;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --notion-bg: #37352f;
-        --notion-text: #ffffff;
-        --notion-border: rgba(255, 255, 255, 0.16);
-        --btn-bg: #444;
-        --btn-hover: rgba(255, 255, 255, 0.1);
-        --btn-active-bg: var(--notion-text);
-        --btn-active-text: #37352f;
-      }
+      --notion-bg: #191919;
+      --notion-text: #ffffff;
+      --notion-border: rgba(255, 255, 255, 0.16);
+      --btn-bg: #444;
+      --btn-hover: rgba(255, 255, 255, 0.1);
+      --btn-active-bg: var(--notion-text);
+      --btn-active-text: #191919;
     }
 
     body {
@@ -95,6 +83,19 @@
       font-weight: bold;
       margin-bottom: 20px;
       text-align: center;
+      cursor: pointer;
+    }
+
+    input[type="number"] {
+      font-size: 1em;
+      width: 3em;
+      text-align: center;
+      border: 1px solid var(--notion-border);
+      background: var(--btn-bg);
+      color: inherit;
+      outline: none;
+      border-radius: 4px;
+      margin: 0 0.2em;
     }
 
     @media (max-width: 360px) {
@@ -116,21 +117,29 @@
     <button id="longBreakBtn" onclick="setMode('Break largo', 15)">Break largo</button>
   </div>
   <div class="label" id="sessionLabel">Pomodoro</div>
-  <div class="timer" id="timer">25:00</div>
+  <div class="timer" id="timer" onclick="editTimer()">25:00</div>
   <div class="controls">
     <button onclick="startTimer()">Iniciar</button>
     <button onclick="pauseTimer()">Pausar</button>
     <button onclick="resetTimer()">Reiniciar</button>
   </div>
 
+  <!-- Sonido campanas tibetanas suave, volumen controlado por JS -->
+  <audio id="alarmSound" src="https://actions.google.com/sounds/v1/ambiences/buddhist_temple_bells.ogg" preload="auto"></audio>
+
   <script>
     let time = 25 * 60;
     let timer;
     let running = false;
     let currentMode = 'Pomodoro';
+    let alarmPlaying = false;
 
     const timerElement = document.getElementById("timer");
     const sessionLabel = document.getElementById("sessionLabel");
+    const alarmSound = document.getElementById("alarmSound");
+
+    alarmSound.volume = 0.3; // Volumen suave, pero audible
+
     const buttons = {
       'Pomodoro': document.getElementById('pomodoroBtn'),
       'Break corto': document.getElementById('shortBreakBtn'),
@@ -140,7 +149,7 @@
     function updateDisplay() {
       const minutes = Math.floor(time / 60);
       const seconds = time % 60;
-      timerElement.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      timerElement.innerHTML = `${minutes.toString().padStart(2, "0")}:<span>${seconds.toString().padStart(2, "0")}</span>`;
     }
 
     function updateActiveButton() {
@@ -160,7 +169,8 @@
           } else {
             clearInterval(timer);
             running = false;
-            alert(`${currentMode} terminado!`);
+            alarmSound.play();
+            alarmPlaying = true;
           }
         }, 1000);
       }
@@ -189,6 +199,58 @@
       updateDisplay();
       updateActiveButton();
     }
+
+    function editTimer() {
+      const minutes = Math.floor(time / 60);
+      const seconds = time % 60;
+      timerElement.innerHTML = `<input id="minInput" type="number" min="0" max="999" value="${minutes}" />:<input id="secInput" type="number" min="0" max="59" value="${seconds}" />`;
+
+      const minInput = document.getElementById('minInput');
+      const secInput = document.getElementById('secInput');
+
+      minInput.focus();
+
+      const stopPropagation = e => e.stopPropagation();
+      minInput.addEventListener('click', stopPropagation);
+      secInput.addEventListener('click', stopPropagation);
+      minInput.addEventListener('keydown', stopPropagation);
+      secInput.addEventListener('keydown', stopPropagation);
+
+      const apply = () => {
+        let min = parseInt(minInput.value);
+        let sec = parseInt(secInput.value);
+        if (isNaN(min) || min < 0) min = 0;
+        if (isNaN(sec) || sec < 0 || sec > 59) sec = 0;
+        time = min * 60 + sec;
+        updateDisplay();
+      };
+
+      minInput.addEventListener('blur', apply);
+      secInput.addEventListener('blur', apply);
+
+      minInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          secInput.focus();
+        }
+      });
+
+      secInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          apply();
+          timerElement.focus();
+        }
+      });
+    }
+
+    document.addEventListener('click', () => {
+      if (alarmPlaying) {
+        alarmSound.pause();
+        alarmSound.currentTime = 0;
+        alarmPlaying = false;
+      }
+    });
 
     updateDisplay();
     updateActiveButton();
