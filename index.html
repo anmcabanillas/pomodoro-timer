@@ -137,8 +137,8 @@
     <button onclick="resetTimer()">Reiniciar</button>
   </div>
 
-  <!-- Sonido ambiente suave y en loop -->
-  <audio id="alarmSound" src="https://actions.google.com/sounds/v1/ambiences/soft_wind_loop.ogg" preload="auto" loop></audio>
+  <!-- Alarma con sonido medium bell ringing near -->
+  <audio id="alarmSound" src="https://actions.google.com/sounds/v1/alarms/medium_bell_ringing_near.ogg?hl=es-419" preload="auto"></audio>
 
   <script>
     let time = 25 * 60;
@@ -183,11 +183,8 @@
           } else {
             clearInterval(timer);
             running = false;
-            // Reinicia sonido y reproduce
             alarmSound.currentTime = 0;
-            alarmSound.play().catch(() => {
-              /* En caso de bloqueo por autoplay, no hacer nada */
-            });
+            alarmSound.play().catch(() => {});
             alarmPlaying = true;
           }
         }, 1000);
@@ -223,7 +220,7 @@
     }
 
     function editTimer() {
-      if (running || editing) return; // no editar si corre o ya en edición
+      if (running || editing) return;
 
       editing = true;
       const minutes = Math.floor(time / 60);
@@ -243,7 +240,6 @@
       const applyBtn = document.getElementById('applyBtn');
       const cancelBtn = document.getElementById('cancelBtn');
 
-      // Evitar que el click en inputs y botones cierre la edición
       [minInput, secInput, applyBtn, cancelBtn].forEach(el => {
         el.addEventListener('click', e => e.stopPropagation());
       });
@@ -274,7 +270,6 @@
       }
     }
 
-    // Clic fuera del timer cancela la edición o detiene la alarma
     document.addEventListener('click', (e) => {
       stopAlarm();
       if (editing && !timerElement.contains(e.target)) {
