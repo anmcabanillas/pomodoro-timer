@@ -84,6 +84,7 @@
       margin-bottom: 20px;
       text-align: center;
       cursor: pointer;
+      user-select: none;
     }
 
     input[type="number"] {
@@ -96,6 +97,18 @@
       outline: none;
       border-radius: 4px;
       margin: 0 0.2em;
+    }
+
+    .edit-controls {
+      margin-top: 0.5em;
+      display: flex;
+      gap: 0.5em;
+      justify-content: center;
+    }
+
+    .edit-controls button {
+      min-width: auto;
+      padding: 4px 10px;
     }
 
     @media (max-width: 360px) {
@@ -124,8 +137,8 @@
     <button onclick="resetTimer()">Reiniciar</button>
   </div>
 
-  <!-- Sonido campanas tibetanas suave, volumen controlado por JS -->
-  <audio id="alarmSound" src="https://actions.google.com/sounds/v1/ambiences/buddhist_temple_bells.ogg" preload="auto"></audio>
+  <!-- Sonido ambiente suave y en loop -->
+  <audio id="alarmSound" src="https://actions.google.com/sounds/v1/ambiences/soft_wind_loop.ogg" preload="auto" loop></audio>
 
   <script>
     let time = 25 * 60;
@@ -133,12 +146,11 @@
     let running = false;
     let currentMode = 'Pomodoro';
     let alarmPlaying = false;
+    let editing = false;
 
     const timerElement = document.getElementById("timer");
     const sessionLabel = document.getElementById("sessionLabel");
     const alarmSound = document.getElementById("alarmSound");
-
-    alarmSound.volume = 0.3; // Volumen suave, pero audible
 
     const buttons = {
       'Pomodoro': document.getElementById('pomodoroBtn'),
@@ -149,7 +161,9 @@
     function updateDisplay() {
       const minutes = Math.floor(time / 60);
       const seconds = time % 60;
-      timerElement.innerHTML = `${minutes.toString().padStart(2, "0")}:<span>${seconds.toString().padStart(2, "0")}</span>`;
+      if (!editing) {
+        timerElement.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      }
     }
 
     function updateActiveButton() {
@@ -160,7 +174,7 @@
     }
 
     function startTimer() {
-      if (!running) {
+      if (!running && !editing) {
         running = true;
         timer = setInterval(() => {
           if (time > 0) {
@@ -169,7 +183,11 @@
           } else {
             clearInterval(timer);
             running = false;
-            alarmSound.play();
+            // Reinicia sonido y reproduce
+            alarmSound.currentTime = 0;
+            alarmSound.play().catch(() => {
+              /* En caso de bloqueo por autoplay, no hacer nada */
+            });
             alarmPlaying = true;
           }
         }, 1000);
@@ -183,6 +201,8 @@
 
     function resetTimer() {
       pauseTimer();
+      editing = false;
+      stopAlarm();
       switch (currentMode) {
         case 'Pomodoro': time = 25 * 60; break;
         case 'Break corto': time = 5 * 60; break;
@@ -193,6 +213,8 @@
 
     function setMode(mode, minutes) {
       pauseTimer();
+      editing = false;
+      stopAlarm();
       currentMode = mode;
       sessionLabel.textContent = mode;
       time = minutes * 60;
@@ -201,54 +223,63 @@
     }
 
     function editTimer() {
+      if (running || editing) return; // no editar si corre o ya en edición
+
+      editing = true;
       const minutes = Math.floor(time / 60);
       const seconds = time % 60;
-      timerElement.innerHTML = `<input id="minInput" type="number" min="0" max="999" value="${minutes}" />:<input id="secInput" type="number" min="0" max="59" value="${seconds}" />`;
+
+      timerElement.innerHTML = `
+        <input id="minInput" type="number" min="0" max="999" value="${minutes}" /> :
+        <input id="secInput" type="number" min="0" max="59" value="${seconds}" />
+        <div class="edit-controls">
+          <button id="applyBtn">Aplicar</button>
+          <button id="cancelBtn">Cancelar</button>
+        </div>
+      `;
 
       const minInput = document.getElementById('minInput');
       const secInput = document.getElementById('secInput');
+      const applyBtn = document.getElementById('applyBtn');
+      const cancelBtn = document.getElementById('cancelBtn');
+
+      // Evitar que el click en inputs y botones cierre la edición
+      [minInput, secInput, applyBtn, cancelBtn].forEach(el => {
+        el.addEventListener('click', e => e.stopPropagation());
+      });
 
       minInput.focus();
 
-      const stopPropagation = e => e.stopPropagation();
-      minInput.addEventListener('click', stopPropagation);
-      secInput.addEventListener('click', stopPropagation);
-      minInput.addEventListener('keydown', stopPropagation);
-      secInput.addEventListener('keydown', stopPropagation);
-
-      const apply = () => {
+      applyBtn.onclick = () => {
         let min = parseInt(minInput.value);
         let sec = parseInt(secInput.value);
         if (isNaN(min) || min < 0) min = 0;
         if (isNaN(sec) || sec < 0 || sec > 59) sec = 0;
         time = min * 60 + sec;
+        editing = false;
         updateDisplay();
       };
 
-      minInput.addEventListener('blur', apply);
-      secInput.addEventListener('blur', apply);
-
-      minInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          secInput.focus();
-        }
-      });
-
-      secInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          apply();
-          timerElement.focus();
-        }
-      });
+      cancelBtn.onclick = () => {
+        editing = false;
+        updateDisplay();
+      };
     }
 
-    document.addEventListener('click', () => {
+    function stopAlarm() {
       if (alarmPlaying) {
         alarmSound.pause();
         alarmSound.currentTime = 0;
         alarmPlaying = false;
+      }
+    }
+
+    // Clic fuera del timer cancela la edición o detiene la alarma
+    document.addEventListener('click', (e) => {
+      stopAlarm();
+      if (editing && !timerElement.contains(e.target)) {
+        editing = false;
+        updateDisplay();
       }
     });
 
@@ -257,6 +288,7 @@
   </script>
 </body>
 </html>
+
 
 
 
